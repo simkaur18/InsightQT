@@ -1,0 +1,58 @@
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import streamlit as st
+
+from app.ui import dashboard, home, insight_detail, report, settings
+
+st.set_page_config(page_title="InsightQT", page_icon="📊", layout="wide")
+
+_DEFAULTS = {
+    "stage": "home",
+    "app_preview": None,
+    "report": None,
+    "selected_insight": None,
+    "error_message": None,
+    "pdf_bytes": None,
+}
+for key, default in _DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+with st.sidebar:
+    st.markdown("# InsightQT")
+    st.caption("AI-powered Product Intelligence")
+    st.divider()
+    if st.button("🏠 Home / New Analysis", width="stretch"):
+        st.session_state.stage = "home"
+        st.session_state.report = None
+        st.session_state.app_preview = None
+        st.session_state.pdf_bytes = None
+        st.rerun()
+    if st.button("⚙️ Settings", width="stretch"):
+        st.session_state.stage = "settings"
+        st.rerun()
+
+stage = st.session_state.stage
+
+if stage in ("home", "preview", "analyzing"):
+    home.render()
+elif stage == "dashboard":
+    dashboard.render()
+elif stage == "detail":
+    insight_detail.render()
+elif stage == "report":
+    report.render()
+elif stage == "settings":
+    settings.render()
+else:
+    st.session_state.stage = "home"
+    st.rerun()
