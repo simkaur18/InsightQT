@@ -11,7 +11,9 @@ load_dotenv()
 
 import streamlit as st
 
-from app.ui import dashboard, home, insight_detail, report, settings
+from app.db import init_db
+from app.services import user_service
+from app.ui import admin, auth, dashboard, home, insight_detail, report, settings
 
 st.set_page_config(page_title="InsightQT", page_icon="📊", layout="wide")
 
@@ -22,10 +24,23 @@ _DEFAULTS = {
     "selected_insight": None,
     "error_message": None,
     "pdf_bytes": None,
+    "logged_in": False,
+    "user_email": None,
+    "is_admin": False,
 }
 for key, default in _DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = default
+
+init_db()
+
+if not user_service.any_users_exist():
+    auth.render_bootstrap()
+    st.stop()
+
+if not auth.is_authenticated():
+    auth.render_login()
+    st.stop()
 
 with st.sidebar:
     st.markdown("# InsightQT")
@@ -40,6 +55,15 @@ with st.sidebar:
     if st.button("⚙️ Settings", width="stretch"):
         st.session_state.stage = "settings"
         st.rerun()
+    if st.session_state.is_admin and st.button("🔑 Admin", width="stretch"):
+        st.session_state.stage = "admin"
+        st.rerun()
+    st.divider()
+    st.caption(f"Logged in as {st.session_state.user_email}")
+    if st.button("Log out", width="stretch"):
+        auth.log_out()
+        st.session_state.stage = "home"
+        st.rerun()
 
 stage = st.session_state.stage
 
@@ -53,6 +77,8 @@ elif stage == "report":
     report.render()
 elif stage == "settings":
     settings.render()
+elif stage == "admin":
+    admin.render()
 else:
     st.session_state.stage = "home"
     st.rerun()

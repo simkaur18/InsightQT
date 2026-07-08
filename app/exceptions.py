@@ -15,8 +15,20 @@ class ReviewRetrievalError(InsightQTError):
 
 
 class MissingAPIKeyError(InsightQTError):
-    """Raised when ANTHROPIC_API_KEY is not configured."""
+    """Raised when GROQ_API_KEY is not configured."""
 
 
 class AIAnalysisError(InsightQTError):
     """Raised when AI analysis fails entirely (not just a partial batch failure)."""
+
+
+class UserAlreadyExistsError(InsightQTError):
+    """Raised when creating a user whose email is already registered."""
+
+
+class InvalidCredentialsError(InsightQTError):
+    """Raised when a login attempt's email/password doesn't match a stored user."""
+
+
+class UserNotFoundError(InsightQTError):
+    """Raised when an operation references a user email that isn't registered."""
