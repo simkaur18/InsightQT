@@ -12,6 +12,7 @@ load_dotenv()
 import streamlit as st
 
 from app.db import init_db
+from app.exceptions import InsightQTError
 from app.services import user_service
 from app.ui import admin, auth, dashboard, home, insight_detail, report, settings
 
@@ -32,7 +33,11 @@ for key, default in _DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
-init_db()
+try:
+    init_db()
+except InsightQTError as exc:
+    st.error(str(exc))
+    st.stop()
 
 if not user_service.any_users_exist():
     auth.render_bootstrap()

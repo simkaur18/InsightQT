@@ -1,30 +1,35 @@
-import sqlite3
-from pathlib import Path
+import os
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "insightqt.db"
+import psycopg2
+import psycopg2.extras
+
+from app.exceptions import MissingDatabaseURLError
 
 
-def get_connection() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_connection() -> psycopg2.extensions.connection:
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise MissingDatabaseURLError(
+            "DATABASE_URL is not configured. Add it to your .env file."
+        )
+    return psycopg2.connect(database_url, cursor_factory=psycopg2.extras.RealDictCursor)
 
 
 def init_db() -> None:
     conn = get_connection()
     try:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                is_admin INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
         conn.commit()
     finally:
         conn.close()

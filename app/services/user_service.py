@@ -1,7 +1,7 @@
-import sqlite3
 from datetime import datetime
 
 import bcrypt
+import psycopg2
 
 from app.db import get_connection
 from app.exceptions import (
@@ -14,8 +14,9 @@ from app.exceptions import (
 def any_users_exist() -> bool:
     conn = get_connection()
     try:
-        row = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()
-        return row is not None
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM users LIMIT 1")
+            return cur.fetchone() is not None
     finally:
         conn.close()
 
@@ -26,13 +27,15 @@ def create_user(email: str, password: str, is_admin: bool = False) -> None:
     conn = get_connection()
     try:
         try:
-            conn.execute(
-                "INSERT INTO users (email, password_hash, is_admin, created_at) "
-                "VALUES (?, ?, ?, ?)",
-                (email, password_hash, int(is_admin), datetime.now().isoformat()),
-            )
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO users (email, password_hash, is_admin, created_at) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (email, password_hash, is_admin, datetime.now().isoformat()),
+                )
             conn.commit()
-        except sqlite3.IntegrityError as exc:
+        except psycopg2.errors.UniqueViolation as exc:
+            conn.rollback()
             raise UserAlreadyExistsError(f"A user with email {email} already exists.") from exc
     finally:
         conn.close()
@@ -42,7 +45,9 @@ def verify_credentials(email: str, password: str) -> dict:
     email = email.strip().lower()
     conn = get_connection()
     try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+            row = cur.fetchone()
     finally:
         conn.close()
 
@@ -57,9 +62,9 @@ def verify_credentials(email: str, password: str) -> dict:
 def list_users() -> list[dict]:
     conn = get_connection()
     try:
-        rows = conn.execute(
-            "SELECT email, is_admin, created_at FROM users ORDER BY created_at"
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute("SELECT email, is_admin, created_at FROM users ORDER BY created_at")
+            rows = cur.fetchall()
     finally:
         conn.close()
     return [
@@ -72,9 +77,11 @@ def remove_user(email: str) -> None:
     email = email.strip().lower()
     conn = get_connection()
     try:
-        cursor = conn.execute("DELETE FROM users WHERE email = ?", (email,))
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM users WHERE email = %s", (email,))
+            deleted = cur.rowcount
         conn.commit()
-        if cursor.rowcount == 0:
+        if deleted == 0:
             raise UserNotFoundError(f"No user found with email {email}.")
     finally:
         conn.close()
@@ -84,11 +91,13 @@ def set_admin(email: str, is_admin: bool) -> None:
     email = email.strip().lower()
     conn = get_connection()
     try:
-        cursor = conn.execute(
-            "UPDATE users SET is_admin = ? WHERE email = ?", (int(is_admin), email)
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET is_admin = %s WHERE email = %s", (is_admin, email)
+            )
+            updated = cur.rowcount
         conn.commit()
-        if cursor.rowcount == 0:
+        if updated == 0:
             raise UserNotFoundError(f"No user found with email {email}.")
     finally:
         conn.close()

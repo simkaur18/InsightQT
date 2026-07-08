@@ -8,10 +8,17 @@ from app.exceptions import (
 )
 from app.services import user_service
 
+TEST_DATABASE_URL = "postgresql://insightqt_test:testpass123@localhost:5432/insightqt_test"
+
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(db_module, "DB_PATH", tmp_path / "test.db")
+def isolated_db(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
+    conn = db_module.get_connection()
+    with conn.cursor() as cur:
+        cur.execute("DROP TABLE IF EXISTS users")
+    conn.commit()
+    conn.close()
     db_module.init_db()
 
 

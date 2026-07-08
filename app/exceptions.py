@@ -32,3 +32,7 @@ class InvalidCredentialsError(InsightQTError):
 
 class UserNotFoundError(InsightQTError):
     """Raised when an operation references a user email that isn't registered."""
+
+
+class MissingDatabaseURLError(InsightQTError):
+    """Raised when DATABASE_URL is not configured."""
